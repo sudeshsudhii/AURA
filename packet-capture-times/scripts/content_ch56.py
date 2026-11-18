@@ -125,11 +125,9 @@ def ch6(R):
 def refs_and_appendices(R, readme_tree):
     R.H1("References")
     for i, r in enumerate(REFERENCES, 1):
-        p = R.doc.add_paragraph(); R._fmt(p, AL.LEFT, 1.3, 6, indent=0.45, first=-0.45)   # IEEE style; long URLs would stretch justified lines
-        R.runs(p, f"[{i}]\t" + r, 11)
-        # tab stop
         from docx.shared import Inches
-        p.paragraph_format.tab_stops.add_tab_stop(Inches(0.45))
+        p = R.doc.add_paragraph(); R._fmt(p, AL.LEFT, 1.15, 6, indent=0.46, first=-0.46)   # reference: 12 pt, hanging indent
+        R.runs(p, f"[{i}] " + r, 12)   # reference: "[1] K. Scarfone ..." inline, continuation lines indented
     R.H1("Appendix A: Scripts")
     R.P("All scripts are in the scripts folder of the accompanying archive. The listing below shows the core of the capture builder and the parser; the remaining scripts are described in Table A.1.", after=4)
     R.H3("A.1 make_pcap.py (excerpt)")
@@ -212,6 +210,6 @@ C  Validate: every alert is later than first suspicious packet -> True""", size=
         "Run `python3 parse_pcap.py ../data/handshake_us.pcap` and compare its output with `tcpdump -n -tttt -r` and `tshark -r ... -T fields -e frame.time_epoch`.",
         "Run `sudo ./live_capture.sh ../data/live_lo.pcap` to take a new live capture, then `python3 gap_analysis.py` on it. The times will differ from those in this report, but the two pauses will again appear as gaps close to 0.8 s and 1.5 s.",
         "Run the remaining analysis scripts in the same folder to reproduce Tables 4.3, 5.2 and 5.3 and the exfiltration results: `timeline_merge.py`, `drift_model.py`, `tz_table.py` and `exfil_window.py`.",
-        "Run `python3 figures.py` to redraw every figure, and `python3 build_report.py` to regenerate the report."])
+        "Redraw every figure with `python3 figures.py`, then regenerate this report with `python3 build_report.py`."])
     R.P("The folder structure of the archive is:", after=3)
     R.code(readme_tree, size=8.5)

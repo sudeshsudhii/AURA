@@ -1,6 +1,6 @@
 # Packet Capture Times - case study report
 
-* `Packet_Capture_Times_Case_Study_Report.docx` - the report (SRMIST case-study template format). A PDF copy is alongside it.
+* `Packet_Capture_Times_Case_Study_Report.docx` - the report (formatted to match the reference 21CSE535T case study report). A PDF copy is alongside it.
 * `scripts/` - everything needed to regenerate the experiments, figures and the report (see Appendix D of the report).
 * `data/` - constructed capture (`handshake_*.pcap*`), live loopback capture (`live_lo.pcap`), synthetic exfil data.
 * `output/` - saved tool output quoted in the report.

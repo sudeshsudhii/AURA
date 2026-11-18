@@ -50,7 +50,7 @@ def main(docx_path, pdf):
     L, R = sb.left_margin.inches * PT, PAGE_W - sb.right_margin.inches * PT
     pages, imgs = pdf_lines(pdf), pdf_images(pdf)
     n = len(pages)
-    p0 = next(i for i, ls in enumerate(pages) if any(l["t"].startswith("Chapter 1: Introduction") for l in ls))
+    p0 = next(i for i, ls in enumerate(pages) if any(l["t"] == "CHAPTER 1" for l in ls))
 
     def bounds(i): return (cover_l, cover_r) if i == 0 else (L, R)
 
@@ -73,20 +73,20 @@ def main(docx_path, pdf):
     checked = 0
     for t in centred:
         key = t[:28]
-        hit = None
+        hits = []
         for i, ls in enumerate(pages):
             for l in ls:
                 if l["t"].startswith(key) or (len(key) > 12 and key.startswith(l["t"][:28]) and len(l["t"]) >= 12):
-                    hit = (i, l); break
-            if hit: break
-        if not hit:
+                    hits.append((i, l))
+        if not hits:
             continue
-        i, l = hit
-        lo, hi = bounds(i)
-        c, want = (l["x0"] + l["x1"]) / 2, (lo + hi) / 2
+        # the same words can also appear elsewhere (e.g. a TOC entry); judge the occurrence closest to centre
+        def off(h):
+            lo, hi = bounds(h[0]); return (h[1]["x0"] + h[1]["x1"]) / 2 - (lo + hi) / 2
+        i, l = min(hits, key=lambda h: abs(off(h)))
         checked += 1
-        if abs(c - want) > TOL:
-            issues.append(f"p{i+1}: centred line off-centre by {c - want:+.1f} pt: {l['t'][:50]!r}")
+        if abs(off((i, l))) > TOL:
+            issues.append(f"p{i+1}: centred line off-centre by {off((i, l)):+.1f} pt: {l['t'][:50]!r}")
 
     # ---------------- 3. images centred
     for i, lst in imgs.items():
@@ -111,7 +111,7 @@ def main(docx_path, pdf):
         if abs(c - (L + R) / 2) > TOL: issues.append(f"p{i+1}: page number off-centre by {c - (L + R) / 2:+.1f} pt")
 
     # ---------------- 5. stranded headings / table captions at the bottom of a page
-    heads = [" ".join(p.text.split()) for p in d.paragraphs if p.style.name.startswith("Heading") and p.text.strip()]
+    heads = [" ".join(p.text.split()) for p in d.paragraphs if p.style.name in ("Heading 2", "Heading 3") and p.text.strip()]   # Heading 1 is centred by design
     for i, ls in enumerate(pages):
         body = [l for l in ls if l["y0"] < 841.9 - 72]
         if not body: continue
@@ -124,6 +124,12 @@ def main(docx_path, pdf):
         for l in ls:
             if any(l["t"] == h for h in heads) and abs(l["x0"] - L) > TOL:
                 issues.append(f"p{i+1}: heading not at left margin (x={l['x0']:.0f}): {l['t'][:40]!r}")
+
+    # ---------------- 6a. blank pages (nothing but a page number)
+    for i, ls in enumerate(pages):
+        body_lines = [l for l in ls if not re.fullmatch(r"[ivx]+|\d+", l["t"])]
+        if not body_lines and not imgs.get(i):
+            issues.append(f"p{i+1}: blank page")
 
     # ---------------- 6b. cover: names evenly and compactly spaced; no wrapped centred lines except the title
     cov = pages[0]
@@ -155,8 +161,8 @@ def main(docx_path, pdf):
     in_chapters = False
     for p in d.paragraphs:
         t = p.text.strip()
-        if t.startswith("Chapter 1: Introduction"): in_chapters = True
-        if t == "References": in_chapters = False
+        if t.startswith("CHAPTER 1"): in_chapters = True
+        if t == "REFERENCES": in_chapters = False
         if not in_chapters or not t or p.style.name.startswith("Heading"): continue
         al = p.alignment
         mono = p.runs and all((r.font.name or "").startswith("Courier") for r in p.runs if r.text.strip())   # whole-line code only
@@ -165,7 +171,7 @@ def main(docx_path, pdf):
             issues.append(f"docx: body paragraph not justified ({al}): {t[:50]!r}")
 
     # ---------------- 7. docx: unexpected indents, table widths
-    ok_ind = {(0.0, 0.0), (0.5, -0.25), (0.45, -0.45), (0.5, -0.3), (0.1, 0.0), (0.0, 0.5)}
+    ok_ind = {(0.0, 0.0), (0.25, -0.25), (0.46, -0.46), (0.3, -0.3), (0.0, 0.4), (2.93, 0.0)}
     for p in d.paragraphs:
         pf = p.paragraph_format
         li = round((pf.left_indent or 0) / 914400, 2); fi = round((pf.first_line_indent or 0) / 914400, 2)

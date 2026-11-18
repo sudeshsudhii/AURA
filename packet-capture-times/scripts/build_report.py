@@ -2,7 +2,9 @@
 """Build the case study report from the SRMIST template.  Run from the scripts/ directory:
     python3 build_report.py <template.docx> <out.docx>
 Pass 1 collects figure/table captions; pass 2 renders to PDF to find page numbers; pass 3 writes the final file."""
-import json, os, re, subprocess, sys, shutil
+import io, json, os, re, subprocess, sys, shutil, zipfile
+from docx.shared import Inches
+from docx.oxml.ns import qn
 from docx.enum.section import WD_SECTION
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from report_lib import Report, fix_order
@@ -23,24 +25,24 @@ ABBREV = [("ACK", "Acknowledgement (TCP flag)"), ("ARP", "Address Resolution Pro
 
 TOC = [("", "Abstract", 0, "ABSTRACT"), ("", "List of Figures", 0, "LIST OF FIGURES"), ("", "List of Tables", 0, "LIST OF TABLES"),
        ("", "List of Abbreviations", 0, "LIST OF ABBREVIATIONS"),
-       ("1", "INTRODUCTION", 0, "Chapter 1: Introduction"), ("1.1", "Background", 1, "1.1 Background"),
+       ("1", "INTRODUCTION", 0, "CHAPTER 1"), ("1.1", "Background", 1, "1.1 Background"),
        ("1.2", "Industry/Domain Context", 1, "1.2 Industry/Domain Context"), ("1.3", "Problem Statement", 1, "1.3 Problem Statement"),
        ("1.4", "Objectives", 1, "1.4 Objectives"), ("1.5", "Scope and Limitations", 1, "1.5 Scope and Limitations"),
        ("1.6", "Organization of the Report", 1, "1.6 Organization of the Report"),
-       ("2", "LITERATURE SURVEY", 0, "Chapter 2: Literature Survey"), ("2.1", "Introduction", 1, "2.1 Introduction"),
+       ("2", "LITERATURE SURVEY", 0, "CHAPTER 2"), ("2.1", "Introduction", 1, "2.1 Introduction"),
        ("2.2", "Review of Existing Approaches", 1, "2.2 Review of Existing Approaches"),
        ("2.3", "Comparative Analysis and Gap Identification", 1, "2.3 Comparative Analysis"),
-       ("3", "METHODOLOGY", 0, "Chapter 3: Methodology"), ("3.1", "Approach Overview", 1, "3.1 Approach Overview"),
+       ("3", "METHODOLOGY", 0, "CHAPTER 3"), ("3.1", "Approach Overview", 1, "3.1 Approach Overview"),
        ("3.2", "Data Collection / Requirements Gathering", 1, "3.2 Data Collection"), ("3.3", "Architecture", 1, "3.3 Architecture"),
        ("3.4", "Implementation Strategy", 1, "3.4 Implementation Strategy"),
-       ("4", "IMPLEMENTATION", 0, "Chapter 4: Implementation"), ("4.1", "Execution and Step-by-Step Analysis", 1, "4.1 Execution"),
+       ("4", "IMPLEMENTATION", 0, "CHAPTER 4"), ("4.1", "Execution and Step-by-Step Analysis", 1, "4.1 Execution"),
        ("4.2", "Core Algorithms and Configurations", 1, "4.2 Core Algorithms"), ("4.3", "Challenges Faced and Mitigation", 1, "4.3 Challenges Faced"),
-       ("5", "RESULTS AND DISCUSSION", 0, "Chapter 5: Results and Discussion"), ("5.1", "Findings and Output", 1, "5.1 Findings and Output"),
+       ("5", "RESULTS AND DISCUSSION", 0, "CHAPTER 5"), ("5.1", "Findings and Output", 1, "5.1 Findings and Output"),
        ("5.2", "Discussion", 1, "5.2 Discussion"), ("5.3", "Practical Implications", 1, "5.3 Practical Implications"),
-       ("6", "CONCLUSION AND FUTURE SCOPE", 0, "Chapter 6: Conclusion"), ("6.1", "Conclusion", 1, "6.1 Conclusion"),
+       ("6", "CONCLUSION AND FUTURE SCOPE", 0, "CHAPTER 6"), ("6.1", "Conclusion", 1, "6.1 Conclusion"),
        ("6.2", "Future Scope", 1, "6.2 Future Scope"),
-       ("", "REFERENCES", 0, "References"), ("", "APPENDIX A: Scripts", 0, "Appendix A:"), ("", "APPENDIX B: Tool Output", 0, "Appendix B:"),
-       ("", "APPENDIX C: Normalised Merge Output", 0, "Appendix C:"), ("", "APPENDIX D: Reproduction Steps", 0, "Appendix D:")]
+       ("", "REFERENCES", 0, "REFERENCES"), ("", "APPENDICES", 0, "APPENDIX A")]
+FRONT_KEYS = {"ABSTRACT", "LIST OF FIGURES", "LIST OF TABLES", "LIST OF ABBREVIATIONS"}
 
 TREE = """packet-capture-times/
   scripts/  make_pcap.py parse_pcap.py live_capture.sh gap_analysis.py
@@ -57,14 +59,26 @@ TREE = """packet-capture-times/
 def build(template, out, pages, captions):
     R = Report(template)
     R.captions = {"fig": [], "tab": []}
-    F.edit_cover_and_bonafide(R)
-    F.front_matter(R, pages, captions, ABBREV)
-    F.contents(R, TOC, pages, captions, ABBREV)
-    R.doc.add_section(WD_SECTION.NEW_PAGE)
     d = R.doc
-    for s in d.sections[1:]: R.set_margins(s)
-    R.footer_page_number(d.sections[1], "lowerRoman", 2)
-    R.footer_page_number(d.sections[2], "decimal", 1)
+    # start from an empty body: keep the template's styles and its SRM logo, but lay out every page as the reference does
+    body = d.element.body
+    for el in list(body):
+        if el.tag != qn("w:sectPr"): body.remove(el)
+    sp = body.find(qn("w:sectPr"))
+    for tag in ("w:headerReference", "w:footerReference", "w:titlePg", "w:pgNumType"):
+        for e in sp.findall(qn(tag)): sp.remove(e)
+    logo = io.BytesIO(zipfile.ZipFile(template).read("word/media/image1.png"))
+    F.cover(R, logo)
+    d.add_section(WD_SECTION.NEW_PAGE)                      # section 0 = cover
+    F.bonafide(R); F.declaration(R); F.acknowledgements(R); F.abstract(R)
+    F.contents(R, TOC, pages, captions, ABBREV)
+    d.add_section(WD_SECTION.NEW_PAGE)                      # section 1 = front matter, section 2 = chapters
+    s0, s1, s2 = d.sections
+    s0.left_margin = s0.right_margin = s0.top_margin = s0.bottom_margin = Inches(1.0)
+    for s in (s1, s2): R.set_margins(s)
+    s0.footer.is_linked_to_previous = False                 # cover: no page number (counts as i)
+    R.footer_page_number(s1, "lowerRoman", 2)
+    R.footer_page_number(s2, "decimal", 1)
     A.ch1(R); A.ch2(R); B.ch3(R); B.ch4(R); Cc.ch5(R); Cc.ch6(R); Cc.refs_and_appendices(R, TREE)
     d.core_properties.title = F.TITLE_CASE
     d.core_properties.author = ", ".join(n for n, _ in F.STUDENTS)
@@ -92,14 +106,14 @@ def compute_pages(pdf, captions):
     for i in range(1, n + 1):
         t = subprocess.run(["pdftotext", "-f", str(i), "-l", str(i), "-layout", pdf, "-"], capture_output=True, text=True).stdout
         texts.append([re.sub(r"\s+", " ", ln).strip() for ln in t.split("\n") if ln.strip()])
-    p0 = next(i for i, ls in enumerate(texts) if "Chapter 1: Introduction" in ls)
+    p0 = next(i for i, ls in enumerate(texts) if "CHAPTER 1" in ls)
     pages = {}
     def find(prefix, lo, hi):
         for i in range(lo, hi):
             if any(l.startswith(prefix) for l in texts[i]): return i
         return None
     for _, _, _, key in TOC:
-        if key.isupper():                       # front matter titles (own page, exact line)
+        if key in FRONT_KEYS:                   # front matter titles (own page, exact line)
             i = find(key, 0, p0)
             if i is not None: pages[key] = roman(i + 1)
         else:

@@ -55,8 +55,29 @@ class Report:
         self.captions = {"fig": [], "tab": []}   # (label, title) in order
         self.refs = []
         self._style_setup()
+        self._bullet_font()
 
     # ------------------------------------------------------------------ styles
+    def _bullet_font(self):
+        """The template's bullet glyph uses 'Noto Sans Symbols' and the paragraph mark inherits Cambria; their fallback
+        fonts have tall line boxes that pushed bullet items 28 pt apart (reference: 20 pt). Use Times New Roman 12 pt."""
+        numbering = self.doc.part.numbering_part.element
+        for lvl in numbering.iter(qn("w:lvl")):
+            rpr = lvl.find(qn("w:rPr"))
+            if rpr is None: continue
+            rf = rpr.find(qn("w:rFonts"))
+            if rf is not None and (rf.get(qn("w:ascii")) or "").startswith("Noto Sans Symbols"):
+                for a in ("w:ascii", "w:hAnsi", "w:cs", "w:eastAsia"): rf.set(qn(a), FONT)
+                for tag in ("w:sz", "w:szCs"):
+                    for e in rpr.findall(qn(tag)): rpr.remove(e)
+                    e = OxmlElement(tag); e.set(qn("w:val"), "24"); rpr.append(e)
+        # paragraph-mark default: Times New Roman 12 pt instead of the template's Cambria 11 pt
+        dd = self.doc.styles.element.find(qn("w:docDefaults"))
+        rf = dd.find(".//" + qn("w:rFonts"))
+        for a in ("w:ascii", "w:hAnsi", "w:cs", "w:eastAsia"): rf.set(qn(a), FONT)
+        for e in dd.iter(qn("w:sz")): e.set(qn("w:val"), "24")
+        for e in dd.iter(qn("w:szCs")): e.set(qn("w:val"), "24")
+
     def _style_setup(self):
         st = self.doc.styles
         n = st["Normal"]; n.font.name = FONT; n.font.size = Pt(12)
@@ -75,7 +96,8 @@ class Report:
                 rf.set(qn(a), FONT)
             for a in ("w:asciiTheme", "w:hAnsiTheme", "w:cstheme", "w:eastAsiaTheme"):
                 if rf.get(qn(a)) is not None: del rf.attrib[qn(a)]
-            pf = s.paragraph_format; pf.keep_with_next = True; pf.space_before = Pt(14 if name != "Heading 3" else 10); pf.space_after = Pt(6)
+            pf = s.paragraph_format; pf.keep_with_next = True
+            pf.space_before, pf.space_after = {"Heading 1": (Pt(0), Pt(12)), "Heading 2": (Pt(8), Pt(12)), "Heading 3": (Pt(6), Pt(8))}[name]   # gaps measured from the reference
             pf.line_spacing = 1.15
             pf.left_indent = Inches(0); pf.first_line_indent = Inches(0)
 
@@ -100,7 +122,7 @@ class Report:
             if part.startswith("[["):
                 r = p.add_run(part[2:-2]); set_font(r, size, bold, italic); r.font.highlight_color = WD_COLOR_INDEX.YELLOW
             elif part.startswith("**"): r = p.add_run(part[2:-2]); set_font(r, size, True, italic, color=color)
-            elif part.startswith("`"): r = p.add_run(part[1:-1]); set_font(r, size, bold, True)   # inline commands: italic serif keeps justified lines even
+            elif part.startswith("`"): r = p.add_run(part[1:-1]); set_font(r, size - 1, bold, italic, mono=True)   # reference: inline names in monospace, 1 pt smaller
             elif part.startswith("*"): r = p.add_run(part[1:-1]); set_font(r, size, bold, True, color=color)
             else: r = p.add_run(part); set_font(r, size, bold, italic, color=color)
 
@@ -116,9 +138,24 @@ class Report:
         p = self.doc.add_paragraph(); p.add_run().add_break(WD_BREAK.PAGE); self._fmt(p, spacing=1.0, after=0)
 
     def H1(self, text, break_before=True):
+        """'Chapter 1: Introduction' -> CHAPTER 1 / INTRODUCTION; 'Appendix A: Scripts' -> APPENDIX A / SCRIPTS;
+        'References' -> REFERENCES. Two centred 16 pt bold lines, as in the reference report."""
+        # an empty spacer paragraph right before a page break can spill onto its own page and leave a blank page
+        prev = self.doc.element.body[-2] if len(self.doc.element.body) > 1 else None   # [-1] is the body sectPr
+        while prev is not None and prev.tag == qn("w:p") and not "".join(prev.itertext()).strip() \
+                and prev.find(".//" + qn("w:drawing")) is None and prev.find(".//" + qn("w:sectPr")) is None:
+            nxt = prev.getprevious(); prev.getparent().remove(prev); prev = nxt
         p = self.doc.add_paragraph(style="Heading 1"); p.paragraph_format.page_break_before = break_before
-        p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-        r = p.add_run(text); set_font(r, 16, True, color="000000"); return p
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        pf = p.paragraph_format; pf.space_before = Pt(0); pf.space_after = Pt(12); pf.line_spacing = 1.5
+        if ":" in text:
+            head, ttl = [x.strip() for x in text.split(":", 1)]
+            r = p.add_run(head.upper()); set_font(r, 16, True, color="000000")
+            r.add_break()
+            r = p.add_run(ttl.upper()); set_font(r, 16, True, color="000000")
+        else:
+            r = p.add_run(text.upper()); set_font(r, 16, True, color="000000")
+        return p
 
     def H2(self, text):
         p = self.doc.add_paragraph(style="Heading 2"); r = p.add_run(text); set_font(r, 14, True, color="000000"); return p
@@ -134,30 +171,41 @@ class Report:
     def bullets(self, items, size=12):
         for it in items:
             p = self.doc.add_paragraph(style="List Bullet")
-            self._fmt(p, WD_ALIGN_PARAGRAPH.JUSTIFY, 1.5, 3, indent=0.5, first=-0.25)
+            self._fmt(p, WD_ALIGN_PARAGRAPH.JUSTIFY, 1.5, 10, indent=0.25, first=-0.25)   # reference: bullet at the margin, text at 0.25"
             self.runs(p, it, size)
 
     def numbered(self, items, size=12):
         for i, it in enumerate(items, 1):
-            p = self.doc.add_paragraph(); self._fmt(p, WD_ALIGN_PARAGRAPH.JUSTIFY, 1.5, 3, indent=0.5, first=-0.3)
-            p.paragraph_format.tab_stops.add_tab_stop(Inches(0.5))
+            p = self.doc.add_paragraph(); self._fmt(p, WD_ALIGN_PARAGRAPH.JUSTIFY, 1.5, 3, indent=0.3, first=-0.3)
+            p.paragraph_format.tab_stops.add_tab_stop(Inches(0.3))
             self.runs(p, f"{i}.\t" + it, size)
 
     # ------------------------------------------------------------------ code
-    def code(self, text, size=8.5, caption=None):
+    def code(self, text, size=9, caption=None):
+        """Code listing in a bordered, lightly shaded box (reference: 9 pt monospace, thin black border)."""
         lines = text.rstrip("\n").split("\n")
-        mx = int(5.55*72/(size*0.6))
+        mx = int((TEXT_W - 0.17) * 72 / (size * 0.6))
         for ln in lines:
-            if len(ln) > mx: print(f"WARN code line {len(ln)}>{mx}: {ln[:50]}")
+            if len(ln) > mx: print(f"WARN code line {len(ln)}>{mx} at {size}pt: {ln[:50]}")
+        t = self.doc.add_table(rows=1, cols=1); t.alignment = WD_TABLE_ALIGNMENT.CENTER
+        tblPr = t._tbl.tblPr
+        borders = OxmlElement("w:tblBorders")
+        for edge in ("top", "left", "bottom", "right"):
+            e = OxmlElement(f"w:{edge}"); e.set(qn("w:val"), "single"); e.set(qn("w:sz"), "4"); e.set(qn("w:space"), "0"); e.set(qn("w:color"), "000000"); borders.append(e)
+        tblPr.append(borders)
+        mar = OxmlElement("w:tblCellMar")
+        for edge, w in (("top", 60), ("left", 115), ("bottom", 60), ("right", 115)):
+            e = OxmlElement(f"w:{edge}"); e.set(qn("w:w"), str(w)); e.set(qn("w:type"), "dxa"); mar.append(e)
+        tblPr.append(mar)
+        cell = t.rows[0].cells[0]; shade(cell._tc.get_or_add_tcPr(), "F2F2F2")
         for i, ln in enumerate(lines):
-            p = self.doc.add_paragraph(); pf = p.paragraph_format
-            pf.line_spacing = 1.0; pf.space_after = Pt(0); pf.space_before = Pt(0)
-            pf.left_indent = Inches(0.1); pf.right_indent = Inches(0.1)
-            pf.keep_together = True
-            if i < len(lines) - 1: pf.keep_with_next = True
-            ppr = p._p.get_or_add_pPr(); shade(ppr, "F2F2F2")
+            p = cell.paragraphs[0] if i == 0 else cell.add_paragraph()
+            pf = p.paragraph_format; pf.line_spacing = 1.0; pf.space_after = Pt(0); pf.space_before = Pt(0)
             r = p.add_run(ln if ln else " "); set_font(r, size, mono=True)
-        sp = self.doc.add_paragraph(); self._fmt(sp, spacing=1.0, after=4)
+        if len(lines) <= 40:
+            trPr = t.rows[0]._tr.get_or_add_trPr(); cs = OxmlElement("w:cantSplit"); trPr.append(cs)
+        set_col_widths(t, [TEXT_W])
+        sp = self.doc.add_paragraph(); self._fmt(sp, spacing=1.0, after=6)
 
     # ------------------------------------------------------------------ figures and tables
     def FIG(self, ch, filename, caption, width=5.6):
@@ -166,20 +214,21 @@ class Report:
         p = self.doc.add_paragraph(); self._fmt(p, WD_ALIGN_PARAGRAPH.CENTER, 1.0, 3, before=6, keep_next=True)
         p.add_run().add_picture(f"../figures/{filename}", width=Inches(width))
         c = self.doc.add_paragraph(); self._fmt(c, WD_ALIGN_PARAGRAPH.CENTER, 1.15, 10)
-        r = c.add_run(f"{label}: {caption}"); set_font(r, 11, True)
+        r = c.add_run(f"{label}:"); set_font(r, 11, True); r = c.add_run(f" {caption}"); set_font(r, 11, False)
         self.captions["fig"].append((f"{ch}.{n}", caption)); return label
 
     def TABLE(self, ch, caption, header, rows, widths, size=10, align=None, bold_first_col=False, note=None):
+        size = 10   # reference tables are all 10 pt
         n = self.tab_no.get(ch, 0) + 1; self.tab_no[ch] = n
         c = self.doc.add_paragraph(); self._fmt(c, WD_ALIGN_PARAGRAPH.CENTER, 1.15, 4, before=6, keep_next=True)
-        r = c.add_run(f"Table {ch}.{n}: {caption}"); set_font(r, 11, True)
+        r = c.add_run(f"Table {ch}.{n}:"); set_font(r, 11, True); r = c.add_run(f" {caption}"); set_font(r, 11, False)
         self.captions["tab"].append((f"{ch}.{n}", caption))
         t = self.doc.add_table(rows=1 + len(rows), cols=len(header)); t.alignment = WD_TABLE_ALIGNMENT.CENTER
         t.autofit = False
         tblPr = t._tbl.tblPr
         borders = OxmlElement("w:tblBorders")
         for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
-            e = OxmlElement(f"w:{edge}"); e.set(qn("w:val"), "single"); e.set(qn("w:sz"), "4"); e.set(qn("w:space"), "0"); e.set(qn("w:color"), "808080"); borders.append(e)
+            e = OxmlElement(f"w:{edge}"); e.set(qn("w:val"), "single"); e.set(qn("w:sz"), "4"); e.set(qn("w:space"), "0"); e.set(qn("w:color"), "000000"); borders.append(e)
         tblPr.append(borders)
         mar = OxmlElement("w:tblCellMar")
         for edge, w in (("top", 30), ("left", 70), ("bottom", 30), ("right", 70)):
@@ -232,7 +281,7 @@ class Report:
         p = f.paragraphs[0]
         for r in list(p.runs): r._r.getparent().remove(r._r)
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        r = p.add_run(); set_font(r, 11)
+        r = p.add_run(); set_font(r, 12)
         for t, txt in (("begin", None), (None, " PAGE "), ("end", None)):
             if t:
                 fc = OxmlElement("w:fldChar"); fc.set(qn("w:fldCharType"), t); r._r.append(fc)
@@ -242,7 +291,7 @@ class Report:
     def set_margins(self, section):
         section.left_margin = Inches(1.5); section.right_margin = Inches(1.0)
         section.top_margin = Inches(1.0); section.bottom_margin = Inches(1.0)
-        section.footer_distance = Inches(0.5)
+        section.footer_distance = Inches(0.75)   # reference page numbers sit ~0.75" from the page edge
 
 
 # ---------------------------------------------------------------------- schema ordering (Word is strict about child order)
