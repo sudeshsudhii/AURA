@@ -42,7 +42,7 @@ def edit_cover_and_bonafide(R):
     for k, (nm, rn) in enumerate(STUDENTS):
         set_text(ps[3 + k], f"{nm} [{rn}]", size=14)
     off = len(STUDENTS) - 1
-    set_text(ps[7 + off], "[Name of the Faculty]", keep_highlight=True)
+    set_text(ps[7 + off], "Dr. RAJASEKARAN P")
     set_text(ps[8 + off], "Assistant Professor")
     set_text(ps[9 + off], DEPT)
     set_text(ps[10 + off], f"in partial fulfillment of the requirements for the course {COURSE_CODE} – {COURSE.upper()} for the degree ")
@@ -74,7 +74,7 @@ def edit_cover_and_bonafide(R):
     # signature table
     t = R.doc.tables[0]
     for p in t.rows[0].cells[0].paragraphs:
-        if "Name of the Faculty" in p.text: set_text(p, "[Name of the Faculty]", keep_highlight=True)
+        if "Name of the Faculty" in p.text: set_text(p, "Dr. RAJASEKARAN P")
         elif "Computational Intelligence" in p.text: set_text(p, DEPT)
     tp = tbl_pr = t._tbl.tblPr
     for e in tbl_pr.findall(qn("w:tblpPr")): tbl_pr.remove(e)
@@ -123,8 +123,8 @@ def front_matter(R, pages, captions, abbrevs):
         "We thank Dr. Leenus Jesu Martin M, Dean, College of Engineering and Technology, for his support throughout our programme.",
         "We are grateful to Dr. Revathi Venkataraman, Professor and Chairperson, School of Computing, and to Dr. M. Pushpalatha and Dr. C. Lakshmi, Associate Chairpersons of the School of Computing, for their encouragement and guidance.",
         "We thank Dr. G. Niranjana, Professor and Head, Department of Computing Technologies, for the departmental facilities and her continued support.",
-        "We are deeply indebted to our course faculty and guide, [[Name of the Faculty]], Assistant Professor, Department of Computing Technologies, who teaches 21CSE535T Network Intrusions and Computer Forensics, for the lectures, the feedback on our seminar presentation on packet capture times and the direction he or she gave this report.",
-        "We also thank [[Name of the Faculty Advisor]], our faculty advisor, the course coordinators and the department staff for their help, and our families and friends for their patience and support."):
+        "We are deeply indebted to our course faculty and guide, Dr. Rajasekaran P, Assistant Professor, Department of Computing Technologies, who teaches 21CSE535T Network Intrusions and Computer Forensics, for the lectures, the feedback on our seminar presentation on packet capture times and the direction he gave this report.",
+        "We also thank Dr. J. Selvin Paul Peter, Professor, our faculty advisor, the course coordinators and the department staff for their help, and our families and friends for their patience and support."):
         R.P(txt, first=0.5)
     for nm, rn in STUDENTS:
         R.P(nm, align=WD_ALIGN_PARAGRAPH.RIGHT, after=0)
