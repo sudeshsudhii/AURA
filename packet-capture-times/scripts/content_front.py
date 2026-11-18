@@ -9,7 +9,7 @@ from report_lib import set_font, shade, set_col_widths
 
 TITLE = "UNDERSTANDING PACKET CAPTURE TIMES IN NETWORK FORENSICS: TIMESTAMPS, TIME SYNCHRONISATION AND ATTACK TIMELINE RECONSTRUCTION"
 TITLE_CASE = "Understanding Packet Capture Times in Network Forensics: Timestamps, Time Synchronisation and Attack Timeline Reconstruction"
-STUDENTS = [("SUDESH P", "RA2512005010025"), ("HARSH GUPT A", "RA2512005010054"), ("AISHWARYA B", "RA2512005010001")]
+STUDENTS = [("SUDESH P", "RA2512005010025"), ("HARSH GUPTA", "RA2512005010054"), ("AISHWARYA B", "RA2512005010001")]
 COURSE_CODE = "21CSE535T"
 COURSE = "Network Intrusions and Computer Forensics"
 DEPT = "Department of Computing Technologies"
