@@ -41,6 +41,8 @@ def edit_cover_and_bonafide(R):
     ps = R.doc.paragraphs
     for k, (nm, rn) in enumerate(STUDENTS):
         set_text(ps[3 + k], f"{nm} [{rn}]", size=14)
+        ps[3 + k].paragraph_format.right_indent = Inches(0); ps[3 + k].paragraph_format.left_indent = Inches(0)   # template indent pulled the names left of centre
+    ps[0].paragraph_format.left_indent = Inches(0); ps[0].paragraph_format.right_indent = Inches(0)
     off = len(STUDENTS) - 1
     set_text(ps[7 + off], "Dr. RAJASEKARAN P")
     set_text(ps[8 + off], "Assistant Professor")
