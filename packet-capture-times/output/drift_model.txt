@@ -1,0 +1,11 @@
+A. Drift of a clock running fast by P parts-per-million
+  ppm  per day (s)  per 30 d (s)  per year (s)  days to 10 min
+    5        0.432         12.96         157.7            1389
+   20        1.728         51.84         630.7             347
+   50        4.320        129.60        1576.8             139
+  100        8.640        259.20        3153.6              69
+
+B. Firewall (clock 4 min 10 s fast) vs NTP-synced server
+   firewall logged : 14:34:08  server logged: 14:30:00
+   raw order       : SERVER login first -> login appears 4 min 8 s BEFORE the allow (impossible)
+   corrected order : 14:29:58 firewall allow -> 14:30:00 login (cause precedes effect)

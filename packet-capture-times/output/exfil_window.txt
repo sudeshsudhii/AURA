@@ -1,0 +1,5 @@
+sessions: 164  total volume: 11.00 GB  first: 2013-12-02 16:59 UTC  last: 2013-12-15 22:10 UTC
+active hours, UTC view    : 16:00-24:00
+active hours, Central view: 10:00-18:00 (CST = UTC-6 in December)
+share of volume 10:00-18:00 Central: 100.0%
+share of volume 00:00-06:00 UTC (a 'night' for a UTC-reading analyst): 0.0%, 16:00-24:00 UTC: 100.0%

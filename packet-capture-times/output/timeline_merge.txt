@@ -1,0 +1,20 @@
+A. Naive merge (raw local strings sorted as if all were the same zone)
+  05:00:05.000000  endpoint AV      script quarantined
+  10:00:01.000000  packet capture   suspicious inbound connection
+  10:00:03.000000  packet capture   repeated connection requests
+  10:00:03.420000  web server       POST /upload accepted
+  10:00:05.000000  packet capture   outbound transfer begins
+  10:00:12.000000  monitoring SIEM  correlated alert raised
+  15:30:12.000000  firewall         ALERT: unusual outbound volume
+
+B. Normalised merge (converted to UTC, clock offset removed)
+  10:00:01.000000  + 0.000s  packet capture   suspicious inbound connection   [raw: 2026-11-09 10:00:01.000000, res 1e-06s]
+  10:00:03.000000  + 2.000s  packet capture   repeated connection requests   [raw: 2026-11-09 10:00:03.000000, res 1e-06s]
+  10:00:03.420000  + 2.420s  web server       POST /upload accepted   [raw: 2026-11-09 10:00:03.420, res 0.001s]
+  10:00:05.000000  + 4.000s  packet capture   outbound transfer begins   [raw: 2026-11-09 10:00:05.000000, res 1e-06s]
+  10:00:07.000000  + 6.000s  endpoint AV      script quarantined   [raw: 2026-11-09 05:00:05, res 1s]
+  10:00:08.000000  + 7.000s  firewall         ALERT: unusual outbound volume   [raw: 2026-11-09 15:30:12, res 1s]
+  10:00:12.000000  +11.000s  monitoring SIEM  correlated alert raised   [raw: 2026-11-09 10:00:12, res 1s]
+
+C. Validate: every alert is later than first suspicious packet -> True
+   packets show activity from 10:00:01; first alert 7 s later, last alert 11 s later

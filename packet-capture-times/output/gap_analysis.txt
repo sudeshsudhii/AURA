@@ -1,0 +1,8 @@
+16 frames, duration 2.303306 s
+gap bands:  <1 ms = machine, 1-100 ms = network/stack, >=0.5 s = pause (human/think time)
+  < 1 ms           12
+  1 ms - 100 ms     1
+  100 ms - 0.5 s    0
+  >= 0.5 s          2
+largest gaps: frame 11: 1.500237 s, frame 8: 0.800260 s, frame 15: 0.001823 s
+SYN -> SYN/ACK : 18 us

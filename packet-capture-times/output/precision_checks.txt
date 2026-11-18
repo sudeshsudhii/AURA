@@ -1,0 +1,6 @@
+live capture: frames per wall-clock second (UTC): {'2026-11-18 02:20:24': 7, '2026-11-18 02:20:25': 3, '2026-11-18 02:20:27': 6}
+handshake (SYN -> final ACK) took 31 us
+scripted pauses 0.8 s / 1.5 s -> captured gaps 0.800260 s / 1.500237 s
+float64 spacing near 1.794e9 s: 2.384e-07 s (238 ns)
+float repr of epoch+us      : 1794246001.212754 | exact Decimal: 1794246001.212754
+ns example exact: 1794246001.212754123 -> as float64: 1794246001.212754 (last digits lost)
