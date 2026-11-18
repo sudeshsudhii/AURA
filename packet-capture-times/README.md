@@ -6,6 +6,8 @@
 * `output/` - saved tool output quoted in the report.
 * `figures/` - the 13 figures.
 
+Check layout: `python3 scripts/layout_audit.py <report.docx> <report.pdf>` (margins, centring, page numbers, stretched lines, alignment).
+
 Regenerate: `cd scripts && python3 make_pcap.py && sudo ./live_capture.sh ../data/live_lo.pcap && python3 figures.py && python3 build_report.py <template.docx> ../output/Report.docx`
 
 Data kinds are labelled throughout the report: constructed, live, synthetic, hypothetical, reported.

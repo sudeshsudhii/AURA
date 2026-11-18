@@ -19,7 +19,7 @@ def ch1(R):
     R.P("On 28 February 2018 GitHub was hit by a distributed denial-of-service attack that used memcached servers exposed to the internet to amplify small requests into very large responses. The peak was reported as 1.35 terabits per second; GitHub’s monitoring detected the anomaly, traffic was moved through a scrubbing provider, and service was restored within minutes [17]. For this study the event is an example of a case where the question that matters is about time: how quickly was the anomaly seen, and how long did it last. The source was consulted only through a summary of the incident report, so the figures should be checked against the original post before they are quoted elsewhere.")
     R.H3("1.2.3 SYN floods and identical timestamps")
     R.P("Messier’s discussion of SYN floods supplies a small, concrete example of timing as evidence. In a tcpdump capture of a flood the timestamps look identical on every frame because the SYN messages were sent about a microsecond apart; a SYN and its SYN/ACK in a normal listing differ by tens of microseconds [1]. The extraordinary number of frames per second is itself the signature of the attack.")
-    R.TABLE("1", "Scenarios used in this case study and the time-related lesson of each",
+    R.TABLE("1", "Scenarios used in this case study and what each teaches about packet times",
             ["Scenario", "What happened (source)", "Lesson about packet times"],
             [["Target breach, Nov.–Dec. 2013", "Vendor credentials, POS malware, FTP exfiltration over about two weeks; alerts not acted on; Justice Department notified Target on 12 Dec. [2], [3]",
               "Attack and detection unfold over weeks; the daily window of outbound transfers is a time-based signature"],

@@ -100,12 +100,11 @@ class Report:
             if part.startswith("[["):
                 r = p.add_run(part[2:-2]); set_font(r, size, bold, italic); r.font.highlight_color = WD_COLOR_INDEX.YELLOW
             elif part.startswith("**"): r = p.add_run(part[2:-2]); set_font(r, size, True, italic, color=color)
-            elif part.startswith("`"): r = p.add_run(part[1:-1]); set_font(r, size - 1, bold, italic, mono=True)
+            elif part.startswith("`"): r = p.add_run(part[1:-1]); set_font(r, size, bold, True)   # inline commands: italic serif keeps justified lines even
             elif part.startswith("*"): r = p.add_run(part[1:-1]); set_font(r, size, bold, True, color=color)
             else: r = p.add_run(part); set_font(r, size, bold, italic, color=color)
 
     def P(self, text, align=WD_ALIGN_PARAGRAPH.JUSTIFY, size=12, after=6, first=0.0, **kw):
-        if "`" in text and align == WD_ALIGN_PARAGRAPH.JUSTIFY: align = WD_ALIGN_PARAGRAPH.LEFT   # justified text squeezes inline code
         p = self.doc.add_paragraph(); self._fmt(p, align, 1.5, after, first=first, **kw)
         self.runs(p, text, size); return p
 
@@ -141,7 +140,8 @@ class Report:
     def numbered(self, items, size=12):
         for i, it in enumerate(items, 1):
             p = self.doc.add_paragraph(); self._fmt(p, WD_ALIGN_PARAGRAPH.JUSTIFY, 1.5, 3, indent=0.5, first=-0.3)
-            self.runs(p, f"{i}.  " + it, size)
+            p.paragraph_format.tab_stops.add_tab_stop(Inches(0.5))
+            self.runs(p, f"{i}.\t" + it, size)
 
     # ------------------------------------------------------------------ code
     def code(self, text, size=8.5, caption=None):

@@ -28,6 +28,76 @@ def set_text(p, text, keep_highlight=False, size=None):
             for h in rpr.findall(qn("w:highlight")): rpr.remove(h)
 
 
+def _sp(p, before=0, after=0, line=1.15):
+    """Set exact paragraph spacing (pt) and line spacing (multiple); clears template indents."""
+    pf = p.paragraph_format
+    pf.space_before = Pt(before); pf.space_after = Pt(after); pf.line_spacing = line
+    pf.left_indent = Inches(0); pf.right_indent = Inches(0); pf.first_line_indent = Inches(0)
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+
+def layout_cover(R, off):
+    """Even, compact cover layout (the template's per-line spacing left uneven gaps between the names)."""
+    ps = R.doc.paragraphs
+    title, course, subm = ps[0], ps[1], ps[2]
+    names = ps[3:3 + len(STUDENTS)]
+    under, guide, desig, dept = ps[6 + off - 2], ps[7 + off - 2], ps[8 + off - 2], ps[9 + off - 2]
+    # after the two blank paragraphs were removed, indices shift by 2
+    assert under.text.startswith("Under the guidance"), under.text
+    partial, degree, in_p, branch, logo = ps[10 + off - 2], ps[11 + off - 2], ps[12 + off - 2], ps[13 + off - 2], ps[14 + off - 2]
+    _sp(title, 0, 8, 1.1)
+    _sp(course, 0, 14, 1.15)
+    _sp(subm, 0, 6, 1.15)
+    for p in names: _sp(p, 0, 3, 1.15)
+    _sp(under, 16, 2, 1.15)
+    for p in (guide, desig, dept): _sp(p, 0, 2, 1.15)
+    # "in partial fulfillment ..." split into three centred lines like the reference report
+    set_text(partial, "in partial fulfillment of the requirements for the course"); _sp(partial, 14, 2, 1.15)
+    code = copy.deepcopy(partial._p); partial._p.addnext(code)
+    from docx.text.paragraph import Paragraph
+    code = Paragraph(code, partial._parent)
+    set_text(code, f"{COURSE_CODE} – {COURSE.upper()}"); _sp(code, 0, 2, 1.15)
+    for r in code.runs: r.font.italic = False; r.font.bold = True
+    first_of = next(r for r in degree.runs if r.text == "of")      # only the first "of" (before the line break)
+    first_of.text = "for the degree of"
+    _sp(degree, 0, 2, 1.15); _sp(in_p, 0, 2, 1.15); _sp(branch, 0, 0, 1.15)
+    _sp(logo, 20, 20, 1.0)
+    # the institutional block at the bottom keeps the template's 1.5 spacing
+    # symmetric cover margins (template had 0.69" left, 0.59" right)
+    s0 = R.doc.sections[0]; s0.right_margin = s0.left_margin
+
+
+def fix_bonafide_header(R):
+    """Template put the logo and the institute name in one indented paragraph; split and centre them."""
+    from docx.text.paragraph import Paragraph
+    ps = R.doc.paragraphs
+    hdr = next(p for p in ps if p.text.strip().startswith("SRM INSTITUTION OF SCIENCE"))
+    blank_before = Paragraph(hdr._p.getprevious(), hdr._parent)
+    _sp(blank_before, 0, 0, 1.0)
+    logo_p = copy.deepcopy(hdr._p); hdr._p.addprevious(logo_p); logo_p = Paragraph(logo_p, hdr._parent)
+    W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+    for r in list(logo_p.runs):
+        if r._r.find(".//" + W + "drawing") is None: r._r.getparent().remove(r._r)
+    for r in list(hdr.runs):
+        if r._r.find(".//" + W + "drawing") is not None: r._r.getparent().remove(r._r)
+    # the logo is a floating image placed 0.79" left of the column; anchor it to the centre of the margins
+    WP = "{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}"
+    for anc in logo_p._p.iter(WP + "anchor"):
+        ph = anc.find(WP + "positionH"); pv = anc.find(WP + "positionV")
+        for ch in list(ph): ph.remove(ch)
+        ph.set("relativeFrom", "margin")
+        al = OxmlElement("wp:align"); al.text = "center"; ph.append(al)
+        for ch in list(pv): ch.text = "0"
+    txt = " ".join(hdr.text.split()).replace("INSTITUTION", "INSTITUTE")
+    set_text(hdr, txt)
+    _sp(logo_p, 0, 10, 1.0); _sp(hdr, 0, 0, 1.3)
+    nxt = Paragraph(hdr._p.getnext(), hdr._parent)          # KATTANKULATHUR line
+    set_text(nxt, "KATTANKULATHUR - 603203"); _sp(nxt, 0, 0, 1.3)
+    for p in R.doc.paragraphs:
+        if p.text == "\t": set_text(p, "")
+        if p.text.startswith("BONAFIDE CERTIFICATE"): _sp(p, 18, 12, 1.15)
+
+
 def edit_cover_and_bonafide(R):
     ps = R.doc.paragraphs
     set_text(ps[0], TITLE, size=16); ps[0].paragraph_format.space_after = Pt(4)
@@ -55,10 +125,8 @@ def edit_cover_and_bonafide(R):
     set_text(ps[13 + off], "COMPUTER SCIENCE ENGINEERING")
     for q in (ps[4 + off], ps[5 + off]):
         if not q.text.strip(): q._p.getparent().remove(q._p)
-    for p in R.doc.paragraphs:
-        if p.text.startswith("SRM INSTITUTION OF SCIENCE"):
-            for r in p.runs:
-                if "INSTITUTION" in r.text: r.text = r.text.replace("INSTITUTION", "INSTITUTE")
+    layout_cover(R, off)
+    fix_bonafide_header(R)
     # bonafide paragraph
     bp = None
     for p in R.doc.paragraphs:
@@ -69,10 +137,21 @@ def edit_cover_and_bonafide(R):
         if hl: r.font.highlight_color = WD_COLOR_INDEX.YELLOW
     add(f"This is to certify that {COURSE_CODE} – {COURSE} case study report titled “")
     add(TITLE_CASE, bold=True)
-    add("” is the bonafide work of ")
-    for i, (nm, rn) in enumerate(STUDENTS):
-        add(f"{nm} ({rn})", bold=True); add(", " if i < len(STUDENTS) - 2 else (" and " if i == len(STUDENTS) - 2 else ""))
-    add(", who undertook the task of completing the report within the allotted time.")
+    add("” is the bonafide work of")
+    # names on their own centred lines (inline bold names with long register numbers stretched the justified lines)
+    from docx.text.paragraph import Paragraph
+    anchor = bp._p
+    for nm, rn in STUDENTS:
+        e = copy.deepcopy(bp._p); anchor.addnext(e); anchor = e
+        q = Paragraph(e, bp._parent)
+        for r in list(q.runs): r._r.getparent().remove(r._r)
+        r = q.add_run(f"{nm} [{rn}]"); set_font(r, 13, True)
+        _sp(q, 0, 2, 1.3)
+    q0 = Paragraph(anchor, bp._parent); q0.paragraph_format.space_after = Pt(8)
+    e = copy.deepcopy(bp._p); anchor.addnext(e); q = Paragraph(e, bp._parent)
+    for r in list(q.runs): r._r.getparent().remove(r._r)
+    r = q.add_run("who undertook the task of completing the report within the allotted time."); set_font(r, 14)
+    first = Paragraph(bp._p.getnext(), bp._parent); first.paragraph_format.space_before = Pt(8)
     # signature table
     t = R.doc.tables[0]
     for p in t.rows[0].cells[0].paragraphs:
